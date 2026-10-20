@@ -2,6 +2,13 @@
 
 AzerothCore is a C++ MMORPG server emulator for World of Warcraft 3.3.5a (WotLK), built with CMake, backed by MySQL.
 
+## Local git workflow
+
+This checkout is two independent repos. Commit where the files live; never push upstream (push is disabled).
+- Core (repo root): commit on `my-server` (tracks `origin/Playerbot`); update with `git pull`.
+- Module `modules/mod-playerbots`: its own repo; commit there on `my-server` (tracks `origin/master`); update with `git -C modules/mod-playerbots pull`.
+- A change spanning both needs one commit in each repo.
+
 ## Agent rules
 
 - **Do not configure or build unless explicitly asked.** Builds are slow and rarely needed for code changes.
