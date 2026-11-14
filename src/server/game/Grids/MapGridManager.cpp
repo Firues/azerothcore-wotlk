@@ -1,10 +1,12 @@
 #include "MapGridManager.h"
 #include "GridObjectLoader.h"
 #include "GridTerrainLoader.h"
+#include "Map.h"
+#include "ScriptMgr.h"
 
 void MapGridManager::CreateGrid(uint16 const x, uint16 const y)
 {
-    std::lock_guard<std::mutex> guard(_gridLock);
+    std::lock_guard<std::recursive_mutex> guard(_gridLock);
     if (IsGridCreated(x, y))
         return;
 
@@ -32,12 +34,15 @@ void MapGridManager::CreateGrid(uint16 const x, uint16 const y)
 // Loads objects, terrain already loaded in CreateGrid
 bool MapGridManager::LoadGrid(uint16 const x, uint16 const y)
 {
+    std::lock_guard<std::recursive_mutex> guard(_gridLock);
+
     MapGridType* grid = GetGrid(x, y);
     if (!grid || grid->IsObjectDataLoaded())
         return false;
 
     // Must mark as loaded first, as GridObjectLoader spawning objects can attempt to recursively load the grid
     grid->SetObjectDataLoaded();
+    grid->ResetIdleTime();
 
     GridObjectLoader loader(*grid, _map);
     loader.LoadAllCellsInGrid();
@@ -46,11 +51,16 @@ bool MapGridManager::LoadGrid(uint16 const x, uint16 const y)
     return true;
 }
 
-void MapGridManager::UnloadGrid(uint16 const x, uint16 const y)
+void MapGridManager::UnloadGrid(uint16 const x, uint16 const y, bool unloadCollision)
 {
+    std::lock_guard<std::recursive_mutex> guard(_gridLock);
+
     MapGridType* grid = GetGrid(x, y);
     if (!grid)
         return;
+
+    bool const wasLoaded = grid->IsObjectDataLoaded();
+    sScriptMgr->OnUnloadGridMap(_map, grid->GetTerrainData(), x, y);
 
     {
         GridObjectCleaner worker;
@@ -66,7 +76,19 @@ void MapGridManager::UnloadGrid(uint16 const x, uint16 const y)
         grid->VisitAllCells(visitor);
     }
 
+    _map->RemoveAllObjectsInRemoveList();
+
     _mapGrid[x][y] = nullptr;
+
+    if (unloadCollision)
+    {
+        _map->GetMapCollisionData().UnloadMMapTile(x, y);
+        _map->GetMapCollisionData().UnloadVMapTile(x, y);
+    }
+
+    if (wasLoaded)
+        --_loadedGridsCount;
+    --_createdGridsCount;
 }
 
 bool MapGridManager::IsGridCreated(uint16 const x, uint16 const y) const

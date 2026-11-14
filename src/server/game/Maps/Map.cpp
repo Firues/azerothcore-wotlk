@@ -19,8 +19,12 @@
 #include "Battleground.h"
 #include "CellImpl.h"
 #include "Chat.h"
+#include "Corpse.h"
+#include "Creature.h"
 #include "DisableMgr.h"
+#include "DynamicObject.h"
 #include "DynamicTree.h"
+#include "GameObject.h"
 #include "GameTime.h"
 #include "Geometry.h"
 #include "GridNotifiers.h"
@@ -48,6 +52,48 @@
 
 #define MAP_INVALID_ZONE        0xFFFFFFFF
 
+namespace
+{
+class GridUnloadCheck
+{
+public:
+    bool CanUnload = true;
+
+    void Visit(CorpseMapType& corpses) { if (!corpses.IsEmpty()) CanUnload = false; }
+    void Visit(PlayerMapType& players) { if (!players.IsEmpty()) CanUnload = false; }
+    void Visit(DynamicObjectMapType& dynamicObjects) { if (!dynamicObjects.IsEmpty()) CanUnload = false; }
+
+    void Visit(CreatureMapType& creatures)
+    {
+        for (auto itr = creatures.begin(); itr != creatures.end(); ++itr)
+        {
+            Creature* creature = itr->GetSource();
+            if (!creature->GetSpawnId() || creature->isActiveObject() || creature->IsVisibilityOverridden() ||
+                creature->IsPet() || creature->IsSummon() || creature->IsVehicle() ||
+                creature->GetCharmerOrOwnerGUID() || creature->IsInCombat())
+            {
+                CanUnload = false;
+                return;
+            }
+        }
+    }
+
+    void Visit(GameObjectMapType& gameObjects)
+    {
+        for (auto itr = gameObjects.begin(); itr != gameObjects.end(); ++itr)
+        {
+            GameObject* gameObject = itr->GetSource();
+            if (!gameObject->GetSpawnId() || gameObject->isActiveObject() || gameObject->IsVisibilityOverridden() ||
+                gameObject->IsTransport())
+            {
+                CanUnload = false;
+                return;
+            }
+        }
+    }
+};
+}
+
 ZoneDynamicInfo::ZoneDynamicInfo() : MusicId(0), DefaultWeather(nullptr), WeatherId(WEATHER_STATE_FINE),
                                      WeatherGrade(0.0f), OverrideLightId(0), LightFadeInTime(0) { }
 
@@ -67,7 +113,7 @@ Map::~Map()
 
 Map::Map(uint32 id, uint32 InstanceId, uint8 SpawnMode, Map* _parent) :
     _mapGridManager(this), i_mapEntry(sMapStore.LookupEntry(id)), _mapCollisionData(*this, _parent),
-    i_spawnMode(SpawnMode), i_InstanceId(InstanceId), m_unloadTimer(0),
+    i_spawnMode(SpawnMode), i_InstanceId(InstanceId), m_unloadTimer(0), _gridUnloadTimer(0),
     m_VisibleDistance(DEFAULT_VISIBILITY_DISTANCE), _instanceResetPeriod(0),
     _transportsUpdateIter(_transports.end()), i_scriptLock(false), _defaultLight(GetDefaultMapLight(id))
 {
@@ -252,6 +298,97 @@ void Map::LoadGridsInRange(Position const& center, float radius)
             Cell cell(cellCoord);
             EnsureGridLoaded(cell);
         }
+    }
+}
+
+void Map::UpdateGridUnload(uint32 diff)
+{
+    if (!sWorld->getBoolConfig(CONFIG_GRID_UNLOAD))
+        return;
+
+    if (GetInstanceId() != 0)
+        return;
+
+    // Instance/BG child maps are destroyed by the core when empty. Their base maps only
+    // provide shared terrain/collision data and can be unloaded when no child maps exist.
+    if (Instanceable())
+    {
+        MapInstanced* instanced = ToMapInstanced();
+        if (!instanced || !instanced->GetInstancedMaps().empty())
+            return;
+    }
+    else if (IsBattlegroundOrArena() || sObjectMgr->IsTransportMap(GetId()))
+        return;
+
+    static constexpr uint32 checkInterval = 10 * IN_MILLISECONDS;
+    if (_gridUnloadTimer > diff)
+    {
+        _gridUnloadTimer -= diff;
+        return;
+    }
+
+    _gridUnloadTimer = checkInterval;
+
+    uint32 const cleanupDelay = sWorld->getIntConfig(CONFIG_GRID_CLEANUP_DELAY);
+    if (!cleanupDelay)
+        return;
+
+    bool nearPlayer[MAX_NUMBER_OF_GRIDS][MAX_NUMBER_OF_GRIDS] = {};
+
+    auto markGridsNear = [&nearPlayer](float x, float y)
+    {
+        GridCoord const center = Acore::ComputeGridCoord(x, y);
+        for (int32 dx = -1; dx <= 1; ++dx)
+        {
+            for (int32 dy = -1; dy <= 1; ++dy)
+            {
+                int32 const gridX = int32(center.x_coord) + dx;
+                int32 const gridY = int32(center.y_coord) + dy;
+                if (gridX >= 0 && gridX < MAX_NUMBER_OF_GRIDS && gridY >= 0 && gridY < MAX_NUMBER_OF_GRIDS)
+                    nearPlayer[gridX][gridY] = true;
+            }
+        }
+    };
+
+    for (MapRefMgr::const_iterator itr = m_mapRefMgr.begin(); itr != m_mapRefMgr.end(); ++itr)
+    {
+        Player* player = itr->GetSource();
+        if (!player || !player->IsInWorld())
+            continue;
+
+        markGridsNear(player->GetPositionX(), player->GetPositionY());
+
+        if (WorldObject* viewpoint = player->GetViewpoint())
+            if (viewpoint->IsInWorld())
+                markGridsNear(viewpoint->GetPositionX(), viewpoint->GetPositionY());
+    }
+
+    for (GridRefMgr<MapGridType>::iterator itr = GridRefMgr<MapGridType>::begin(); itr != GridRefMgr<MapGridType>::end();)
+    {
+        MapGridType* grid = itr->GetSource();
+        ++itr;
+        if (!grid)
+            continue;
+
+        if (nearPlayer[grid->GetX()][grid->GetY()])
+        {
+            grid->ResetIdleTime();
+            continue;
+        }
+
+        GridUnloadCheck check;
+        TypeContainerVisitor<GridUnloadCheck, GridTypeMapContainer> visitor(check);
+        grid->VisitAllCells(visitor);
+
+        if (!check.CanUnload)
+        {
+            grid->ResetIdleTime();
+            continue;
+        }
+
+        grid->AddIdleTime(checkInterval);
+        if (grid->GetIdleTime() >= cleanupDelay)
+            UnloadGrid(*grid, false);
     }
 }
 
@@ -527,6 +664,8 @@ void Map::Update(const uint32 t_diff, const uint32 s_diff, bool  /*thread*/)
     UpdateExpiredCorpses(t_diff);
 
     sScriptMgr->OnMapUpdate(this, t_diff);
+
+    UpdateGridUnload(t_diff);
 
     METRIC_VALUE("map_creatures", uint64(GetObjectsStore().Size<Creature>()),
         METRIC_TAG("map_id", std::to_string(GetId())),
@@ -1045,12 +1184,15 @@ void Map::MoveAllDynamicObjectsInMoveList()
     _dynamicObjectsToMove.clear();
 }
 
-bool Map::UnloadGrid(MapGridType& grid)
+bool Map::UnloadGrid(MapGridType& grid, bool unloadAll)
 {
-    _mapGridManager.UnloadGrid(grid.GetX(), grid.GetY());
+    uint16 const x = grid.GetX();
+    uint16 const y = grid.GetY();
+
+    _mapGridManager.UnloadGrid(x, y, !unloadAll);
 
     ASSERT(i_objectsToRemove.empty());
-    LOG_DEBUG("maps", "Unloading grid[{}, {}] for map {} finished", grid.GetX(), grid.GetY(), GetId());
+    LOG_DEBUG("maps", "Unloading grid[{}, {}] for map {} finished", x, y, GetId());
     return true;
 }
 
@@ -1082,7 +1224,7 @@ void Map::UnloadAll()
         MapGridType* grid = i->GetSource();
         ++i;
         if (grid)
-            UnloadGrid(*grid);
+            UnloadGrid(*grid, true);
     }
 
     // pussywizard: crashfix, some npc can be left on transport (not a default passenger)

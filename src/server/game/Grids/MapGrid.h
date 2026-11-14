@@ -46,6 +46,10 @@ public:
     bool IsObjectDataLoaded() const { return _objectDataLoaded; }
     void SetObjectDataLoaded() { _objectDataLoaded = true; }
 
+    uint32 GetIdleTime() const { return _idleTime; }
+    void AddIdleTime(uint32 idleTime) { _idleTime += idleTime; }
+    void ResetIdleTime() { _idleTime = 0; }
+
     template<class SPECIFIC_OBJECT> void AddGridObject(uint16 const x, uint16 const y, SPECIFIC_OBJECT* obj)
     {
         GetOrCreateCell(x, y).AddGridObject(obj);
@@ -145,6 +149,7 @@ private:
     uint16 _y;
 
     bool _objectDataLoaded;
+    uint32 _idleTime = 0;
     std::array<std::array<std::unique_ptr<GridCellType>, MAX_NUMBER_OF_CELLS>, MAX_NUMBER_OF_CELLS> _cells; // N * N array
     GridReference<MapGrid<GRID_OBJECT_TYPES, FAR_VISIBLE_OBJECT_TYPES>> _gridReference;
 

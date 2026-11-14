@@ -65,7 +65,34 @@ int MapCollisionData::LoadMMapTile(uint32 tileX, uint32 tileY)
     if (!DisableMgr::IsPathfindingEnabled(&_map) || !_mmapData._navMesh)
         return MMAP::MMAP_LOAD_RESULT_IGNORED;
 
-    return MMAP::MMapMgr::LoadTile(_mmapData._navMesh.get(), _map.GetId(), tileX, tileY);
+    dtTileRef tileRef = 0;
+    bool const loaded = MMAP::MMapMgr::LoadTile(_mmapData._navMesh.get(), _map.GetId(), tileX, tileY, &tileRef);
+    if (loaded && tileRef)
+        _mmapData._loadedTiles[(tileX << 16) | tileY] = tileRef;
+
+    return loaded ? MMAP::MMAP_LOAD_RESULT_OK : MMAP::MMAP_LOAD_RESULT_ERROR;
+}
+
+void MapCollisionData::UnloadVMapTile(uint32 tileX, uint32 tileY)
+{
+    if (!VMAP::VMapFactory::createOrGetVMapMgr()->isMapLoadingEnabled() || !_staticVMapData._staticTree)
+        return;
+
+    if (_staticVMapData._staticTree->IsMapTileLoaded(tileX, tileY))
+        _staticVMapData._staticTree->UnloadMapTile(tileX, tileY);
+}
+
+void MapCollisionData::UnloadMMapTile(uint32 tileX, uint32 tileY)
+{
+    if (!DisableMgr::IsPathfindingEnabled(&_map) || !_mmapData._navMesh)
+        return;
+
+    auto itr = _mmapData._loadedTiles.find((tileX << 16) | tileY);
+    if (itr == _mmapData._loadedTiles.end())
+        return;
+
+    MMAP::MMapMgr::UnloadTile(_mmapData._navMesh.get(), itr->second);
+    _mmapData._loadedTiles.erase(itr);
 }
 
 bool StaticVMapCollisionData::isInLineOfSight(float x1, float y1, float z1, float x2, float y2, float z2, VMAP::ModelIgnoreFlags ignoreFlags) const

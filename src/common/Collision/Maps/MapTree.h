@@ -83,6 +83,10 @@ namespace VMAP
         void UnloadMap();
         bool LoadMapTile(uint32 tileX, uint32 tileY);
         void UnloadMapTile(uint32 tileX, uint32 tileY);
+        [[nodiscard]] bool IsMapTileLoaded(uint32 tileX, uint32 tileY) const
+        {
+            return iLoadedTiles.count(packTileID(tileX, tileY)) != 0;
+        }
         [[nodiscard]] bool isTiled() const { return iIsTiled; }
         [[nodiscard]] uint32 numLoadedTiles() const { return iLoadedTiles.size(); }
         void GetModelInstances(ModelInstance*& models, uint32& count);

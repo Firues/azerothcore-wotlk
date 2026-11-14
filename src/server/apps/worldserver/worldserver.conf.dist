@@ -1402,12 +1402,31 @@ DetectPosCollision = 1
 CheckGameObjectLoS = 1
 
 #
+#    GridUnload
+#        Description: Unload map grids that have not been near a player for GridCleanUpDelay
+#                     milliseconds. This saves memory on servers with many bots, at the cost
+#                     of a small stutter when a grid is loaded again.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+GridUnload = 1
+
+#
+#    GridCleanUpDelay
+#        Description: Time (in milliseconds) a grid must be out of player visibility before
+#                     it is unloaded. Minimum value is 60000 (1 minute).
+#        Default:     300000 - (5 minutes)
+
+GridCleanUpDelay = 300000
+
+#
 #    PreloadAllNonInstancedMapGrids
-#        Description: Preload all grids on all non-instanced maps. This will take a great amount
-#                     of additional RAM (ca. 9 GB) and causes the server to take longer to start,
-#                     but can increase performance if used on a server with a high amount of players.
-#                     It will also activate all creatures which are set active (e.g. the Fel Reavers
-#                     in Hellfire Peninsula) on server start.
+#        Description: Preload all grids on all non-instanced maps. Requires GridUnload to be
+#                     disabled. This will take a great amount of additional RAM (ca. 9 GB) and
+#                     causes the server to take longer to start, but can increase performance if
+#                     used on a server with a high amount of players. It will also activate all
+#                     creatures which are set active (e.g. the Fel Reavers in Hellfire Peninsula)
+#                     on server start.
 #        Default:     0 - (Disabled)
 #                     1 - (Enabled)
 

@@ -22,6 +22,7 @@
 #include "MapTree.h"
 #include "MMapMgr.h"
 #include "IVMapMgr.h"
+#include <unordered_map>
 
 class Map;
 
@@ -67,6 +68,8 @@ protected:
     std::shared_ptr<dtNavMesh> _navMesh;
     // navMeshQuery is not thread safe and needs its own instance per map
     MMAP::ManagedNavMeshQuery _navMeshQuery;
+    // Tile refs are stored because Detour indexes loaded tiles by its own (reversed) tile coordinates
+    std::unordered_map<uint32, dtTileRef> _loadedTiles;
 };
 
 // Map collision data holders (dynamic&static vmap, mmaps)
@@ -78,6 +81,8 @@ public:
 
     int LoadVMapTile(uint32 tileX, uint32 tileY);
     int LoadMMapTile(uint32 tileX, uint32 tileY);
+    void UnloadVMapTile(uint32 tileX, uint32 tileY);
+    void UnloadMMapTile(uint32 tileX, uint32 tileY);
 
     DynamicVMapCollisionData& GetDynamicTree() { return _dynamicVMapData; }
     DynamicVMapCollisionData const& GetDynamicTree() const { return _dynamicVMapData; }

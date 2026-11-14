@@ -65,7 +65,7 @@ namespace MMAP
         return uint32(x << 16 | y);
     }
 
-    bool MMapMgr::LoadTile(dtNavMesh* navMesh, uint32 mapId, int32 x, int32 y)
+    bool MMapMgr::LoadTile(dtNavMesh* navMesh, uint32 mapId, int32 x, int32 y, dtTileRef* tileRef)
     {
         // load this tile :: mmaps/MMMXXYY.mmtile
         std::string fileName = Acore::StringFormat(TILE_FILE_NAME_FORMAT, sConfigMgr->GetOption<std::string>("DataDir", "."), mapId, x, y);
@@ -106,11 +106,14 @@ namespace MMAP
 
         fclose(file);
 
-        dtTileRef tileRef = 0;
+        dtTileRef newTileRef = 0;
 
         // memory allocated for data is now managed by detour, and will be deallocated when the tile is removed
-        if (dtStatusSucceed(navMesh->addTile(data, fileHeader.size, DT_TILE_FREE_DATA, 0, &tileRef)))
+        if (dtStatusSucceed(navMesh->addTile(data, fileHeader.size, DT_TILE_FREE_DATA, 0, &newTileRef)))
         {
+            if (tileRef)
+                *tileRef = newTileRef;
+
             dtMeshHeader* header = (dtMeshHeader*)data;
             LOG_DEBUG("maps", "MMAP:loadMap: Loaded mmtile {:03}[{:02},{:02}] into {:03}[{:02},{:02}]", mapId, x, y, mapId, header->x, header->y);
             return true;
@@ -119,6 +122,14 @@ namespace MMAP
         LOG_ERROR("maps", "MMAP:loadMap: Could not load {:03}{:02}{:02}.mmtile into navmesh", mapId, x, y);
         dtFree(data);
         return false;
+    }
+
+    bool MMapMgr::UnloadTile(dtNavMesh* navMesh, dtTileRef tileRef)
+    {
+        if (!navMesh || !tileRef)
+            return false;
+
+        return dtStatusSucceed(navMesh->removeTile(tileRef, nullptr, nullptr));
     }
 
     ManagedNavMeshQuery MMapMgr::CreateNavMeshQuery(dtNavMesh* navMesh)

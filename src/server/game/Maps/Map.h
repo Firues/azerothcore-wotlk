@@ -224,7 +224,7 @@ public:
     void LoadGrid(float x, float y);
     void LoadAllGrids();
     void LoadGridsInRange(Position const& center, float radius);
-    bool UnloadGrid(MapGridType& grid);
+    bool UnloadGrid(MapGridType& grid, bool unloadAll);
     virtual void UnloadAll();
 
     std::shared_ptr<GridTerrainData> GetGridTerrainDataSharedPtr(GridCoord const& gridCoord);
@@ -591,6 +591,7 @@ private:
 
     bool EnsureGridLoaded(Cell const& cell);
     MapGridType* GetMapGrid(uint16 const x, uint16 const y);
+    void UpdateGridUnload(uint32 diff);
 
     void ScriptsProcess();
 
@@ -611,6 +612,7 @@ protected:
     uint8 i_spawnMode;
     uint32 i_InstanceId;
     uint32 m_unloadTimer;
+    uint32 _gridUnloadTimer;
     float m_VisibleDistance;
     time_t _instanceResetPeriod; // pussywizard
 

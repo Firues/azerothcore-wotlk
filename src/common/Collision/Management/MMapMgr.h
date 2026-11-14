@@ -67,7 +67,8 @@ namespace MMAP
         ~MMapMgr() = default;
 
         static std::shared_ptr<dtNavMesh> LoadNavMesh(uint32 mapId);
-        static bool LoadTile(dtNavMesh* navMesh, uint32 mapId, int32 x, int32 y);
+        static bool LoadTile(dtNavMesh* navMesh, uint32 mapId, int32 x, int32 y, dtTileRef* tileRef = nullptr);
+        static bool UnloadTile(dtNavMesh* navMesh, dtTileRef tileRef);
         static ManagedNavMeshQuery CreateNavMeshQuery(dtNavMesh* navMesh);
 
     private:

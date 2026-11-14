@@ -34,7 +34,7 @@ public:
 
     void CreateGrid(uint16 const x, uint16 const y);
     bool LoadGrid(uint16 const x, uint16 const y);
-    void UnloadGrid(uint16 const x, uint16 const y);
+    void UnloadGrid(uint16 const x, uint16 const y, bool unloadCollision);
     bool IsGridCreated(uint16 const x, uint16 const y) const;
     bool IsGridLoaded(uint16 const x, uint16 const y) const;
     MapGridType* GetGrid(uint16 const x, uint16 const y);
@@ -55,7 +55,7 @@ private:
     uint32 _createdGridsCount;
     uint32 _loadedGridsCount;
 
-    std::mutex _gridLock;
+    std::recursive_mutex _gridLock;
     std::unique_ptr<MapGridType> _mapGrid[MAX_NUMBER_OF_GRIDS][MAX_NUMBER_OF_GRIDS];
 };
 

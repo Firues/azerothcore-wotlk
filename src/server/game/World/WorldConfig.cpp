@@ -15,6 +15,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "GridDefines.h"
 #include "Player.h"
 #include "WorldConfig.h"
 
@@ -649,8 +650,19 @@ void WorldConfig::BuildConfigCache()
     // Prevent players AFK from being logged out
     SetConfigValue<uint32>(CONFIG_AFK_PREVENT_LOGOUT, "PreventAFKLogout", 0);
 
+    // Unload grids that have not been near a player for GridCleanUpDelay milliseconds
+    SetConfigValue<bool>(CONFIG_GRID_UNLOAD, "GridUnload", true);
+    SetConfigValue<uint32>(CONFIG_GRID_CLEANUP_DELAY, "GridCleanUpDelay", 5 * MINUTE * IN_MILLISECONDS,
+        ConfigValueCache::Reloadable::Yes, [](uint32 const& value) { return value >= MIN_GRID_DELAY; }, ">= 60000");
+
     // Preload all grids of all non-instanced maps
     SetConfigValue<bool>(CONFIG_PRELOAD_ALL_NON_INSTANCED_MAP_GRIDS, "PreloadAllNonInstancedMapGrids", false);
+    if (GetConfigValue<bool>(CONFIG_PRELOAD_ALL_NON_INSTANCED_MAP_GRIDS) && GetConfigValue<bool>(CONFIG_GRID_UNLOAD))
+    {
+        LOG_ERROR("server.loading", "PreloadAllNonInstancedMapGrids enabled, but GridUnload also enabled. "
+            "GridUnload must be disabled to enable base map pre-loading. Base map pre-loading disabled");
+        OverwriteConfigValue(CONFIG_PRELOAD_ALL_NON_INSTANCED_MAP_GRIDS, false);
+    }
 
     // ICC buff override
     SetConfigValue<uint32>(CONFIG_ICC_BUFF_HORDE, "ICC.Buff.Horde", 73822);
