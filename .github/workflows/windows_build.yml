@@ -1,7 +1,7 @@
 name: windows-build
 on:
   push:
-    branches: [ "Playerbot", "test-staging" ]
+    branches: [ "Playerbot", "test-staging", "my-server" ]
   pull_request:
     branches: [ "Playerbot", "test-staging" ]
 
@@ -34,9 +34,16 @@ jobs:
       - name: Checkout Playerbot Module
         uses: actions/checkout@v7
         with:
-          repository: mod-playerbots/mod-playerbots
-          ref: ${{ github.ref_name == 'Playerbot' && 'master' || 'test-staging' }}
+          # Take the module from the same account as this core checkout, so work on the
+          # `my-server` branches of both repos is compiled together. On the upstream org this
+          # resolves to mod-playerbots/mod-playerbots itself; on a fork it needs a fork of the
+          # module with a branch matching the core branch name.
+          repository: ${{ github.repository_owner }}/mod-playerbots
+          ref: ${{ github.ref_name == 'Playerbot' && 'master' || github.ref_name == 'test-staging' && 'test-staging' || github.ref_name }}
           path: modules/mod-playerbots
+
+      - name: Install user modules
+        run: bash -x ./apps/ci/install-user-modules.sh
 
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2.13
