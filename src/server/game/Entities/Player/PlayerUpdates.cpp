@@ -57,6 +57,10 @@ void Player::Update(uint32 p_time)
 
     sScriptMgr->OnPlayerBeforeUpdate(this, p_time);
 
+    // Headless sessions (player bots) have no client: skip bookkeeping that only feeds a
+    // rendered client or would never trigger for a bot. Mail is kept - bots do read mail.
+    bool const headless = m_session && m_session->IsHeadless();
+
     // undelivered mail
     if (m_nextMailDelivereTime && m_nextMailDelivereTime <= GameTime::GetGameTime().count())
     {
@@ -68,7 +72,8 @@ void Player::Update(uint32 p_time)
     }
 
     // Update cinematic camera (if needed)
-    _cinematicMgr.UpdateCinematic(p_time);
+    if (!headless)
+        _cinematicMgr.UpdateCinematic(p_time);
 
     // used to implement delayed far teleports
     SetMustDelayTeleport(true);
@@ -78,16 +83,19 @@ void Player::Update(uint32 p_time)
 
     time_t now = GameTime::GetGameTime().count();
 
-    UpdatePvPFlag(now);
-    UpdateFFAPvPFlag(now);
+    if (!headless)
+    {
+        UpdatePvPFlag(now);
+        UpdateFFAPvPFlag(now);
 
-    UpdateContestedPvP(p_time);
+        UpdateContestedPvP(p_time);
 
-    UpdateDuelFlag(now);
+        UpdateDuelFlag(now);
 
-    CheckDuelDistance(now);
+        CheckDuelDistance(now);
 
-    UpdateAfkReport(now);
+        UpdateAfkReport(now);
+    }
 
     // Xinef: update charm AI only if we are controlled by creature or
     // non-posses player charm
@@ -104,7 +112,7 @@ void Player::Update(uint32 p_time)
     }
 
     time_t lastTick = m_Last_tick;
-    if (now > m_Last_tick)
+    if (!headless && now > m_Last_tick)
     {
         // Update items that have just a limited lifetime
         UpdateItemDuration(uint32(now - m_Last_tick));
@@ -121,7 +129,7 @@ void Player::Update(uint32 p_time)
     }
 
     // If mute expired, remove it from the DB
-    if (GetSession()->m_muteTime && GetSession()->m_muteTime < now)
+    if (!headless && GetSession()->m_muteTime && GetSession()->m_muteTime < now)
     {
         GetSession()->m_muteTime = 0;
         LoginDatabasePreparedStatement* stmt =
@@ -154,7 +162,8 @@ void Player::Update(uint32 p_time)
         }
     }
 
-    m_achievementMgr->Update(p_time);
+    if (!headless)
+        m_achievementMgr->Update(p_time);
 
     if (HasUnitState(UNIT_STATE_MELEE_ATTACKING) && !HasUnitState(UNIT_STATE_CASTING) && !HasUnitState(UNIT_STATE_CHARGING))
     {

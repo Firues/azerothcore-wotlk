@@ -295,6 +295,10 @@ void WorldConfig::BuildConfigCache()
 
     SetConfigValue<uint32>(CONFIG_GROUP_VISIBILITY, "Visibility.GroupMode", 1);
 
+    // Clamp the sight range of headless sessions (player bots), which have no client to render
+    // far objects. 0 disables the clamp and keeps the map visibility range for bots.
+    SetConfigValue<uint32>(CONFIG_VISIBILITY_DISTANCE_BOTS, "Visibility.Distance.Bots", 0);
+
     SetConfigValue<bool>(CONFIG_OBJECT_SPARKLES, "Visibility.ObjectSparkles", true);
 
     SetConfigValue<bool>(CONFIG_LOW_LEVEL_REGEN_BOOST, "EnableLowLevelRegenBoost", true);

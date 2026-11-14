@@ -16702,6 +16702,16 @@ float Player::GetSightRange(WorldObject const* target) const
     if (_farSightDistance)
         sightRange += *_farSightDistance;
 
+    // Headless sessions (player bots) have no client to render far objects; clamp their sight
+    // so visibility sweeps and containers stay cheap. Zone-wide visibility overrides keep
+    // their own distance so mechanics still see them. 0 disables the clamp.
+    if (m_session && m_session->IsHeadless())
+    {
+        if (uint32 const botSight = sWorld->getIntConfig(CONFIG_VISIBILITY_DISTANCE_BOTS);
+            botSight && (!target || !target->IsVisibilityOverridden()) && sightRange > float(botSight))
+            sightRange = float(botSight);
+    }
+
     return sightRange;
 }
 
