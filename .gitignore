@@ -137,3 +137,5 @@ e2e/go.work.sum
 
 .cache
 compile_commands.json
+.codegraph/
+.history/
