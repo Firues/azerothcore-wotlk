@@ -155,6 +155,21 @@ jobs:
           export CTOOLS_BUILD=all
           ./acore.sh compiler build
 
+      - name: Stage MySQL client DLLs
+        shell: pwsh
+        run: |
+          # The runtime version check requires the exact libmysql.dll the build linked
+          # against, so ship it (plus its OpenSSL deps) inside the artifact.
+          $bin = 'C:\tools\mysql\current\bin'
+          $dest = 'var/build/obj/bin/Release'
+          Copy-Item "$bin\libmysql.dll" $dest -Force
+          foreach ($dll in 'libssl-3-x64.dll', 'libcrypto-3-x64.dll') {
+            if (Test-Path "$bin\$dll") { Copy-Item "$bin\$dll" $dest -Force }
+            elseif (Test-Path "C:\tools\mysql\current\lib\$dll") { Copy-Item "C:\tools\mysql\current\lib\$dll" $dest -Force }
+            else { Write-Host "WARNING: $dll not found in the MySQL client install" }
+          }
+          Get-ChildItem $dest -Filter *.dll | Select-Object -ExpandProperty Name
+
       - name: Upload server binaries
         if: success()
         uses: actions/upload-artifact@v4
