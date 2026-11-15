@@ -350,7 +350,7 @@ void Map::UpdateGridUnload(uint32 diff)
         }
     };
 
-    for (MapRefMgr::const_iterator itr = m_mapRefMgr.begin(); itr != m_mapRefMgr.end(); ++itr)
+    for (MapRefMgr::iterator itr = m_mapRefMgr.begin(); itr != m_mapRefMgr.end(); ++itr)
     {
         Player* player = itr->GetSource();
         if (!player || !player->IsInWorld())
