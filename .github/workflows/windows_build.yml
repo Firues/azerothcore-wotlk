@@ -161,8 +161,7 @@ jobs:
         with:
           name: worldserver-windows-${{ github.sha }}
           path: |
-            env/dist/bin/*
-            !env/dist/bin/*.pdb
-            env/dist/etc/*.dist
+            var/build/obj/bin/Release/*
+            !var/build/obj/bin/Release/*.pdb
           if-no-files-found: error
           retention-days: 14
