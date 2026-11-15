@@ -159,16 +159,24 @@ jobs:
         shell: pwsh
         run: |
           # The runtime version check requires the exact libmysql.dll the build linked
-          # against, so ship it (plus its OpenSSL deps) inside the artifact.
-          $bin = 'C:\tools\mysql\current\bin'
+          # against, so ship it (plus its OpenSSL deps) inside the artifact. The DLLs sit
+          # in lib\ of the MySQL zip distro (lib\libmysql.dll), bin\ for OpenSSL ones -
+          # search recursively so the layout cannot bite us again.
           $dest = 'var/build/obj/bin/Release'
-          Copy-Item "$bin\libmysql.dll" $dest -Force
-          foreach ($dll in 'libssl-3-x64.dll', 'libcrypto-3-x64.dll') {
-            if (Test-Path "$bin\$dll") { Copy-Item "$bin\$dll" $dest -Force }
-            elseif (Test-Path "C:\tools\mysql\current\lib\$dll") { Copy-Item "C:\tools\mysql\current\lib\$dll" $dest -Force }
-            else { Write-Host "WARNING: $dll not found in the MySQL client install" }
+          $root = 'C:\tools\mysql\current'
+          foreach ($dll in 'libmysql.dll', 'libssl-3-x64.dll', 'libcrypto-3-x64.dll') {
+            $hit = Get-ChildItem -Path $root -Recurse -Filter $dll -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($hit) {
+              Copy-Item $hit.FullName $dest -Force
+              Write-Host "staged $($hit.FullName) (version $($hit.VersionInfo.FileVersion))"
+            }
+            elseif ($dll -eq 'libmysql.dll') {
+              throw "libmysql.dll not found under $root - cannot ship a matching client"
+            }
+            else {
+              Write-Host "##[warning]$dll not found under $root"
+            }
           }
-          Get-ChildItem $dest -Filter *.dll | Select-Object -ExpandProperty Name
 
       - name: Upload server binaries
         if: success()
