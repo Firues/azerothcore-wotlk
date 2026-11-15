@@ -154,3 +154,15 @@ jobs:
         run: |
           export CTOOLS_BUILD=all
           ./acore.sh compiler build
+
+      - name: Upload server binaries
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worldserver-windows-${{ github.sha }}
+          path: |
+            env/dist/bin/*
+            !env/dist/bin/*.pdb
+            env/dist/etc/*.dist
+          if-no-files-found: error
+          retention-days: 14
