@@ -56,7 +56,7 @@ jobs:
           path: |
             C:\local\boost_1_87_0
             C:\tools\mysql\current
-          key: winbuild-deps:boost-1.87.0:mysql-8.4.9
+          key: winbuild-deps:boost-1.87.0:mysql-8.4.7
       - name: Configure OS
         shell: pwsh
         run: |
@@ -126,14 +126,14 @@ jobs:
               # Use the archives CDN directly (keeps every version, unlike dev.mysql.com/get which only
               # serves the current GA). A browser user-agent is required or Oracle returns an HTML error page.
               $mysqlZip = Join-Path $env:RUNNER_TEMP 'mysql.zip'
-              Invoke-WebRequest -Uri 'https://cdn.mysql.com/archives/mysql-8.4/mysql-8.4.9-winx64.zip' -OutFile $mysqlZip -UserAgent 'Mozilla/5.0'
+              Invoke-WebRequest -Uri 'https://cdn.mysql.com/archives/mysql-8.4/mysql-8.4.7-winx64.zip' -OutFile $mysqlZip -UserAgent 'Mozilla/5.0'
               $mysqlMB = (Get-Item $mysqlZip).Length / 1MB
               Write-Host ("Downloaded MySQL zip: {0:N1} MB" -f $mysqlMB)
               if ($mysqlMB -lt 50) { throw "MySQL zip download looks wrong ($([int]$mysqlMB) MB)." }
               New-Item -ItemType Directory -Force -Path 'C:\tools\mysql' | Out-Null
               Expand-Archive -Path $mysqlZip -DestinationPath 'C:\tools\mysql' -Force
               if (Test-Path 'C:\tools\mysql\current') { Remove-Item -Recurse -Force 'C:\tools\mysql\current' }
-              Rename-Item 'C:\tools\mysql\mysql-8.4.9-winx64' 'C:\tools\mysql\current'
+              Rename-Item 'C:\tools\mysql\mysql-8.4.7-winx64' 'C:\tools\mysql\current'
               # Fail fast if the archive layout changed and the client import library isn't
               # where the build expects it, rather than failing later during CMake/link.
               if (-not (Test-Path 'C:\tools\mysql\current\lib\mysqlclient.lib')) { throw 'MySQL client import library missing at C:\tools\mysql\current\lib\mysqlclient.lib.' }
