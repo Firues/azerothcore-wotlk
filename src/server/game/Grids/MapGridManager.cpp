@@ -60,7 +60,10 @@ void MapGridManager::UnloadGrid(uint16 const x, uint16 const y, bool unloadColli
         return;
 
     bool const wasLoaded = grid->IsObjectDataLoaded();
-    sScriptMgr->OnUnloadGridMap(_map, grid->GetTerrainData(), x, y);
+    // Grids can be unloaded while never having been loaded (their terrain data is null);
+    // only notify scripts for grids that actually held loaded terrain.
+    if (wasLoaded && grid->GetTerrainData())
+        sScriptMgr->OnUnloadGridMap(_map, grid->GetTerrainData(), x, y);
 
     {
         GridObjectCleaner worker;
