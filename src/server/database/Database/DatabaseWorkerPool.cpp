@@ -50,11 +50,15 @@ DatabaseWorkerPool<T>::DatabaseWorkerPool() :
     WPFatal(mysql_thread_safe(), "Used MySQL library isn't thread-safe.");
 
     bool isSupportClientDB = mysql_get_client_version() >= MIN_MYSQL_CLIENT_VERSION;
-    bool isSameClientDB = mysql_get_client_version() == MYSQL_VERSION_ID;
+    // The client library only needs to be from the same major.minor series as the headers the
+    // binary was compiled with (8.4.x vs 8.4.x): patch-level drift inside a series is ABI
+    // stable, and runners/images routinely pair one patch of headers with another of the DLL.
+    uint32 const clientVersion = mysql_get_client_version();
+    bool isSameClientDB = (clientVersion / 100) == (MYSQL_VERSION_ID / 100);
 
     WPFatal(isSupportClientDB, "AzerothCore does not support MySQL versions below 8.0\n\nFound version: {} / {}. Server compiled with: {}.\nSearch the wiki for ACE00043 in Common Errors (https://www.azerothcore.org/wiki/common-errors#ace00043).",
         mysql_get_client_info(), mysql_get_client_version(), MYSQL_VERSION_ID);
-    WPFatal(isSameClientDB, "Used MySQL library version ({} id {}) does not match the version id used to compile AzerothCore (id {}).\nSearch the wiki for ACE00046 in Common Errors (https://www.azerothcore.org/wiki/common-errors#ace00046).",
+    WPFatal(isSameClientDB, "Used MySQL library version ({} id {}) does not match the version series used to compile AzerothCore (id {}).\nSearch the wiki for ACE00046 in Common Errors (https://www.azerothcore.org/wiki/common-errors#ace00046).",
         mysql_get_client_info(), mysql_get_client_version(), MYSQL_VERSION_ID);
 }
 
