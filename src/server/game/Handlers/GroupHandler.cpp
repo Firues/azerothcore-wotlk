@@ -82,6 +82,11 @@ void WorldSession::HandleGroupInviteOpcode(WorldPacket& recvData)
     // no player or cheat self-invite
     if (!invitedPlayer || invitedPlayer == invitingPlayer)
     {
+        // Allow scripts to materialize an offline population member (e.g. a cold LOD bot)
+        // and take over the invitation - it is delivered after the materialized player logs in.
+        if (sScriptMgr->OnPlayerGroupInviteOffline(invitingPlayer, membername))
+            return;
+
         SendPartyResult(PARTY_OP_INVITE, membername, ERR_BAD_PLAYER_NAME_S);
         return;
     }

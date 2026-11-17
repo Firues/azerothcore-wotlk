@@ -22,6 +22,7 @@
 #include "DBCEnums.h"
 #include "ObjectGuid.h"
 
+class Player;
 class WhoListPlayerInfo;
 #include "ScriptObject.h"
 #include <map>
@@ -53,6 +54,7 @@ enum GlobalHook
     GLOBALHOOK_CAN_CREATE_LFG_PROPOSAL,
     GLOBALHOOK_CAN_LOOT_OTHER_FACTION_ITEM,
     GLOBALHOOK_ON_WHO_LIST_CACHE_BUILD,
+    GLOBALHOOK_ON_PLAYER_GROUP_INVITE_OFFLINE,
     GLOBALHOOK_END
 };
 
@@ -123,6 +125,11 @@ public:
     // Called at the end of WhoListCacheMgr::Update(); scripts may append extra entries
     // (e.g. a cold bot population) to the who list shown to clients.
     virtual void OnWhoListCacheBuild(std::vector<WhoListPlayerInfo>& /*storage*/) { }
+
+    // Called when a group invite targets a player that is not in the world. Scripts may
+    // materialize the target (e.g. an offline population bot) and take over the invitation
+    // (deferred until the materialized player is ready). Return true when handled.
+    [[nodiscard]] virtual bool OnPlayerGroupInviteOffline(Player* /*inviter*/, std::string const& /*memberName*/) { return false; }
 };
 
 #endif

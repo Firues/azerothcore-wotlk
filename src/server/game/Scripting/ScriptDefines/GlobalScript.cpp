@@ -27,6 +27,11 @@ void ScriptMgr::OnWhoListCacheBuild(std::vector<WhoListPlayerInfo>& storage)
     CALL_ENABLED_HOOKS(GlobalScript, GLOBALHOOK_ON_WHO_LIST_CACHE_BUILD, script->OnWhoListCacheBuild(storage));
 }
 
+bool ScriptMgr::OnPlayerGroupInviteOffline(Player* inviter, std::string const& memberName)
+{
+    CALL_ENABLED_HOOKS(GlobalScript, GLOBALHOOK_ON_PLAYER_GROUP_INVITE_OFFLINE, return script->OnPlayerGroupInviteOffline(inviter, memberName));
+}
+
 void ScriptMgr::OnGlobalItemDelFromDB(CharacterDatabaseTransaction trans, ObjectGuid::LowType itemGuid)
 {
     ASSERT(trans);
