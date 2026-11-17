@@ -19,6 +19,7 @@
 #include "AreaDefines.h"
 #include "GuildMgr.h"
 #include "ObjectAccessor.h"
+#include "ScriptMgr.h"
 #include "World.h"
 #include "WorldSessionMgr.h"
 
@@ -60,4 +61,8 @@ void WhoListCacheMgr::Update()
             (player->IsSpectator() ? AREA_DALARAN : player->GetZoneId()), player->getGender(), player->IsVisible(),
             widePlayerName, wideGuildName, playerName, guildName);
     }
+
+    // Scripts may extend the who list with entries that have no Player object in the world
+    // (e.g. a cold bot population stored as compact records).
+    sScriptMgr->OnWhoListCacheBuild(_whoListStorage);
 }

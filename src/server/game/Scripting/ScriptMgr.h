@@ -67,6 +67,7 @@ class Player;
 class Quest;
 class ScriptMgr;
 class Spell;
+class WhoListPlayerInfo;
 class SpellCastTargets;
 class SpellInfo;
 class SpellScript;
@@ -536,6 +537,7 @@ public: /* GlobalScript */
     void OnGlobalMirrorImageDisplayItem(Item const* item, uint32& display);
     void OnBeforeUpdateArenaPoints(ArenaTeam* at, std::map<ObjectGuid, uint32>& ap);
     void OnArenaWeekReset();
+    void OnWhoListCacheBuild(std::vector<WhoListPlayerInfo>& storage);
     void OnAfterRefCount(Player const* player, Loot& loot, bool canRate, uint16 lootMode, LootStoreItem* LootStoreItem, uint32& maxcount, LootStore const& store);
     void OnAfterCalculateLootGroupAmount(Player const* player, Loot& loot, uint16 lootMode, uint32& groupAmount, LootStore const& store);
     void OnBeforeDropAddItem(Player const* player, Loot& loot, bool canRate, uint16 lootMode, LootStoreItem* LootStoreItem, LootStore const& store);

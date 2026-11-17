@@ -16,10 +16,16 @@
  */
 
 #include "GlobalScript.h"
+#include "Cache/WhoListCacheMgr.h"
 #include "InstanceScript.h"
 #include "Player.h"
 #include "ScriptMgr.h"
 #include "ScriptMgrMacros.h"
+
+void ScriptMgr::OnWhoListCacheBuild(std::vector<WhoListPlayerInfo>& storage)
+{
+    CALL_ENABLED_HOOKS(GlobalScript, GLOBALHOOK_ON_WHO_LIST_CACHE_BUILD, script->OnWhoListCacheBuild(storage));
+}
 
 void ScriptMgr::OnGlobalItemDelFromDB(CharacterDatabaseTransaction trans, ObjectGuid::LowType itemGuid)
 {

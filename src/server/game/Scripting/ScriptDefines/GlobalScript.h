@@ -21,6 +21,8 @@
 #include "DatabaseEnvFwd.h"
 #include "DBCEnums.h"
 #include "ObjectGuid.h"
+
+class WhoListPlayerInfo;
 #include "ScriptObject.h"
 #include <map>
 #include <vector>
@@ -50,6 +52,7 @@ enum GlobalHook
     GLOBALHOOK_AFTER_INSTANCE_GAME_OBJECT_CREATE,
     GLOBALHOOK_CAN_CREATE_LFG_PROPOSAL,
     GLOBALHOOK_CAN_LOOT_OTHER_FACTION_ITEM,
+    GLOBALHOOK_ON_WHO_LIST_CACHE_BUILD,
     GLOBALHOOK_END
 };
 
@@ -116,6 +119,10 @@ public:
     // Called before the LFG queue turns a compatible set of queued players and groups into a proposal.
     // Return false to reject the combination.
     [[nodiscard]] virtual bool CanCreateLfgProposal(lfg::Lfg5Guids const& /*guids*/) { return true; }
+
+    // Called at the end of WhoListCacheMgr::Update(); scripts may append extra entries
+    // (e.g. a cold bot population) to the who list shown to clients.
+    virtual void OnWhoListCacheBuild(std::vector<WhoListPlayerInfo>& /*storage*/) { }
 };
 
 #endif
