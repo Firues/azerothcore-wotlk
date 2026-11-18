@@ -29,11 +29,16 @@ void ScriptMgr::OnWhoListCacheBuild(std::vector<WhoListPlayerInfo>& storage)
 
 bool ScriptMgr::OnPlayerGroupInviteOffline(Player* inviter, std::string const& memberName)
 {
-    LOG_INFO("playerbots", "InviteOffline dispatch: {} script(s) registered",
-             ScriptRegistry<GlobalScript>::EnabledHooks[GLOBALHOOK_ON_PLAYER_GROUP_INVITE_OFFLINE].size());
-    CALL_ENABLED_HOOKS(GlobalScript, GLOBALHOOK_ON_PLAYER_GROUP_INVITE_OFFLINE, return script->OnPlayerGroupInviteOffline(inviter, memberName));
-    LOG_INFO("playerbots", "InviteOffline dispatch: no script handled the invite for '{}'", memberName);
-    return false;
+    // Ask every registered script until one handles the invite. CALL_ENABLED_HOOKS cannot be
+    // used here because a `return` inside its loop would stop at the FIRST script - other
+    // GlobalScripts enable every hook by default and their base implementation returns false,
+    // which would shadow scripts registered after them.
+    bool handled = false;
+    CALL_ENABLED_HOOKS(GlobalScript, GLOBALHOOK_ON_PLAYER_GROUP_INVITE_OFFLINE,
+        handled = handled || script->OnPlayerGroupInviteOffline(inviter, memberName));
+    if (!handled)
+        LOG_INFO("playerbots", "InviteOffline dispatch: no script handled the invite for '{}'", memberName);
+    return handled;
 }
 
 void ScriptMgr::OnGlobalItemDelFromDB(CharacterDatabaseTransaction trans, ObjectGuid::LowType itemGuid)
