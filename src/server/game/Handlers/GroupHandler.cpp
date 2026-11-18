@@ -84,6 +84,7 @@ void WorldSession::HandleGroupInviteOpcode(WorldPacket& recvData)
     {
         // Allow scripts to materialize an offline population member (e.g. a cold LOD bot)
         // and take over the invitation - it is delivered after the materialized player logs in.
+        LOG_INFO("playerbots", "Group invite: '{}' is not in the world, dispatching offline-invite scripts", membername);
         if (sScriptMgr->OnPlayerGroupInviteOffline(invitingPlayer, membername))
             return;
 
