@@ -1,134 +1,158 @@
 # AzerothCore Playerbots — Living World Fork
 
-Prebuilt World of Warcraft **3.3.5a** server (AzerothCore + mod-playerbots) for one home PC.
+A ready-to-run World of Warcraft **3.3.5a** server (AzerothCore + mod-playerbots) where the
+realm is genuinely crowded: **11,620 bots** live in the world, and it all fits in **~4 GB of RAM**
+on an ordinary home PC.
 
----
-
-## 🎯 The goal of this fork
-
-**Two hard requirements, everything else serves them:**
-
-| # | Requirement | Status |
-|---|---|---|
-| 1 | **10,000+ bots living in the world** — a crowded realm, not a ghost town | ✅ 11,620 bots |
-| 2 | **Server never exceeds 4 GB of RAM** — runs on an ordinary home PC | ✅ ~3.6 GB measured |
-
-A normal playerbots server with 10,000 fully simulated bots would need a dedicated server
-machine and still choke. This fork reaches both numbers with a **LOD population system**
-(described below): bots far away exist as tiny data records, bots near you are real.
-
-Everything listed further down is implemented in this fork — none of it exists in upstream.
+Everything described below is implemented in this fork. Stock AzerothCore with stock
+mod-playerbots cannot do this — there, a bot population beyond a few hundred fully simulated
+characters needs a dedicated server machine, and most of the world stays empty.
 
 ---
 
 ## 📥 Download
 
-- **Latest build:** [github.com/Firues/azerothcore-wotlk/releases/latest](https://github.com/Firues/azerothcore-wotlk/releases/latest)
-  — zip with `worldserver.exe`, `authserver.exe`, runtime DLLs, map tools, all module configs
-  and a bilingual `HOW-TO-START.txt`. No compiling needed.
-- Every push is compiled automatically (GitHub Actions); per-commit builds live on the
-  [Actions page](https://github.com/Firues/azerothcore-wotlk/actions).
+**[Living World Server Build v1.0 (latest release)](https://github.com/Firues/azerothcore-wotlk/releases/latest)**
+— one zip, no compiling needed. Inside:
+
+- `worldserver.exe` and `authserver.exe` with all runtime DLLs (OpenSSL, MySQL)
+- the DB importer and the map/DBC/vmap extraction tools
+- config templates for every included module
+- a bilingual `HOW-TO-START.txt` (English / Russian)
+
+Every push to this repository is also compiled automatically by GitHub Actions; per-commit
+binaries are on the [Actions page](https://github.com/Firues/azerothcore-wotlk/actions).
 
 ---
 
-## 🧠 How 10,000 bots fit in 4 GB: the LOD population
+## 🌍 What is different here
 
-The bots are kept in two states:
+| | Stock playerbots server | This fork |
+|---|---|---|
+| Bot population | a few hundred before RAM explodes | **11,620** |
+| RAM for the world server | grows with every bot | **~3.6 GB regardless of population** |
+| Who window | shows only the bots near you | shows the **whole realm** (5,000+ results per search) |
+| Inviting an "offline" bot | impossible | works — the bot materializes and joins you, even from another continent |
+| Bot levels | random, mostly level 1 | match the players around them |
+| Factions | bots ignore territory | Horde lives in Horde lands, Alliance in Alliance lands |
+| World feel | ghost town | crowds in every low-level zone, like a busy retail realm |
 
-| State | Where | Amount | Cost |
+The short version: **this fork keeps the whole population in memory as tiny records and turns
+only the nearby ones into real characters** — with a set of systems making that invisible to
+the player. Details below.
+
+---
+
+## 🧠 How 11,620 bots fit in 4 GB
+
+Every bot exists in one of two states:
+
+| State | What it is | Amount | Cost |
 |---|---|---|---|
-| **Recorded (cold)** | RAM as 128-byte records: name, race, class, level, zone, position | ~11,320 | ~1.4 MB total |
-| **Materialized (hot)** | Real characters walking the world with full AI | ≤ 300 | the only heavy part |
+| **Recorded** | a compact record in RAM: name, race, class, level, guild, zone, position | ~11,300 | ~1.4 MB **total** |
+| **Live** | a real character with a session, AI, map presence | ≤ 300 | the only expensive part |
 
-What you experience while playing:
+What this feels like while playing:
 
-1. You log in. Within seconds, **40 bots** (`LOD.BotsNearPlayerTarget`) materialize around you.
-2. They are level-appropriate, faction-appropriate and spawn **100+ yards away** — outside the
-   ~70-yard client render distance, so nobody "pops" into existence in front of your eyes.
-3. You travel to another zone. After **60 seconds** (`LOD.DematerializeDelay`) the bots you left
-   are turned back into records, and the new zone fills up the same way.
-4. The map chunks (terrain, mobs, vmaps) of empty zones are released too
-   (`GridUnload = 1`) — the world behind you stops costing memory.
+1. **You log in.** Within seconds a crowd of ~40 bots
+   (`Playerbots.LOD.BotsNearPlayerTarget`) comes alive around you.
+2. **Nobody pops into existence in front of your eyes.** Bots are materialized at least
+   100 yards away (`Playerbots.LOD.MinSpawnDistance`) — farther than the client renders
+   distant creatures, so they walk into view naturally, exactly like any mob or object.
+3. **You travel.** Bots left behind stay simulated for a grace period
+   (`Playerbots.LOD.DematerializeDelay = 60` s), then quietly turn back into records;
+   the new zone fills up the same way. Transitions are spread over ticks, so there is
+   no login storm.
+4. **Empty zones cost nothing.** The terrain, collision and pathfinding data of zones
+   nobody is in get released (`GridUnload = 1`) — the world behind you stops costing memory.
 
-**The trick:** to the client, a recorded bot is invisible — but everything *player-facing*
-still works on cold records (see the Who list and invites below).
-
----
-
-## ✨ Features implemented in this fork
-
-### 1. Who window shows the whole realm
-Upstream shows only physically-online players (≤ 300). Here the Who list is **extended with
-all cold records** — names, levels, races, classes, zones and guilds of the entire population.
-Typical search result: **"Найдено игроков: 5,083 (показано: 50)"** — exactly how a crowded
-retail realm felt.
-
-### 2. Invite any bot from the Who window — even one on another continent
-Found a level-55 death knight in Dun Morogh while standing in the Barrens? Click *Invite*:
-
-1. The server materializes that exact bot (it becomes a real character in its zone).
-2. It logs in by itself — takes a few seconds; delivery retries for up to 60 s if needed.
-3. You receive the invite, and the bot is in your party.
-
-No more "Игрок не найден" — upstream simply said "player not found" for anyone offline.
-(Finding and fixing this required instrumenting the group-invite dispatch: three other
-modules' script hooks were shadowing ours; then a malformed packet crashed the server —
-both fixed and verified in-game.)
-
-### 3. Bot levels follow the players, not the dice
-Upstream rolls bot levels randomly from level 1 — so a level-60 player was surrounded by
-level-1 crowds. Here:
-
-- Materialized bots roll levels in the band **[player level − 10 … player level + 3]**.
-- Never-materialized records get a **stable per-bot level** in the same band — the Who list,
-  the invite system and the actual spawn always agree on one level per bot.
-- Bots spawn in their **race's starting zones** (zone recorded at creation — no more
-  "unknown zone" in the Who window).
-
-### 4. A world owned by both factions
-Horde lands are populated by Horde bots, Alliance lands by Alliance bots. An Alliance
-character travelling through the Barrens meets Horde crowds there. With
-`GameType = 1` (world PvP, set in `worldserver.conf`) territories genuinely belong
-to their factions.
-
-### 5. Vanilla-era riding rules for bots
-Under the Individual Progression module the whole server plays classic-era progression —
-and the bots obey the same rules: **ground mounts at 40, epic mounts at 60, no flying
-in old-world zones**. The bot AI (mount logic) and the bot gear factory both read the
-shared `IndividualProgression.Enable` flag.
-
-### 6. Memory hygiene
-- `GridUnload = 1` + `GridCleanUpDelay = 60000`: empty zones release terrain/vmap/mmap
-  memory. (Upstream's grid-unload path crashed the server on never-loaded grids —
-  fixed in this fork: `6a56ab889`.)
-- `Visibility.Distance.Bots = 120`: far bots stop sending data to clients earlier.
-- A **headless fast-path** in the bot manager skips per-bot AI work for the recorded
-  population entirely.
-- Bot records are updated in memory and only periodically flushed to the database.
-
-### 7. Population you can regenerate in one restart
-Flip `Playerbots.DeleteRandomBotAccounts = 1`, run the world, flip it back — the server wipes
-all bot accounts (your characters untouched) and rebuilds a fresh 11,620-bot population with
-new names, starting zones and guilds. Verified twice in this project.
-
-### 8. Crash-hardening that upstream needed
-Along the way this fork fixed its own share of upstream-level bugs: a script-hook dispatcher
-that silently dropped our hooks, a group-invite packet that overran its buffer and killed the
-worldserver, unbraced-loop compile errors, MySQL client-version mismatches in CI, and
-race-constant name differences in this fork. All found via in-game testing, crash dumps and
-instrumented CI builds — and all fixed.
+The clever part is that the recorded population is *not* dead weight: the Who window and
+the invite system work on the full population, cold or hot (see below).
 
 ---
 
-## 🧩 The 24 included modules
+## ✨ Features
 
-Chosen by comparing the reference "repack" distribution and keeping only working,
-maintained ones (plus the two that make the whole thing run: `mod-playerbots` itself
-and the module loader):
+### 1. A realm that is actually crowded
+11,620 characters spread over the world, with more of them steered toward where players
+actually are (`Playerbots.LOD.ConcentrateInPlayerZone`). A level-10 character in Dun Morogh
+sees level-appropriate crowds around them — not an empty map with three strangers at the
+capital. This is the single biggest difference from stock playerbots.
+
+### 2. The Who window shows the whole realm
+Stock behavior: the Who list contains only physically online players, i.e. at most the
+300 active bots. Here the list is **extended with the entire recorded population** — names,
+levels, races, classes, zones and guilds of all 11,620 characters. Searching for
+"level 40–49 warrior" returns hundreds of hits, like on a busy retail realm.
+
+### 3. Invite any bot you find — even one on another continent
+You are in the Barrens, the Who window shows a level-55 death knight in Dun Morogh,
+you click *Invite*, and it works:
+
+1. the server materializes that exact bot where it lives;
+2. the bot logs in by itself (delivery retries for up to a minute if the world is busy);
+3. you get the invite popup, and the bot joins your party.
+
+In stock playerbots every character outside the active set simply does not exist
+for invites — "player not found". Here the whole realm is one friend list.
+
+### 4. Bot levels follow the players, not the dice
+Stock playerbots rolls random levels from 1 upward, so a level-60 player stood in a sea of
+level-1 bots. In this fork:
+
+- bots materialized around you roll levels in the band **[your level − 10 … your level + 3]**;
+- every character in the recorded population has a **stable level in the same band** — the
+  Who window, the invite system and the actual spawn always agree on one level per bot;
+- bots live in their **race's starting zones**, and the zone shown in the Who window is
+  always the real one.
+
+### 5. A world owned by both factions
+Horde lands are populated by Horde bots, Alliance lands by Alliance bots, and the crowd
+steering respects faction territory — an Alliance character traveling through the Barrens
+meets Horde crowds there. With `GameType = 1` (world PvP) in `worldserver.conf` the
+territories genuinely belong to their factions.
+
+### 6. Bots play by the same classic rules you do
+The server ships with the Individual Progression module, which gates the whole game to
+classic-era pacing — and the bots obey the same rules: **ground mounts at level 40, epic
+mounts at 60, no flying mounts in the old world**. The bot AI and the bot gear factory both
+read the shared progression setting, so no bot zooms past you on a flying mount it
+shouldn't have yet.
+
+### 7. The world keeps moving even far away from you
+Recorded bots are not frozen placeholders: every half a minute each one picks a new
+position around its zone and drifts there (`Playerbots.LOD.ColdTickInterval`,
+`ColdWanderRadius`) — the population slowly reshuffles on its own instead of standing
+parked at spawn points forever. And the crowd around you stays alive: bots you kill
+resurrect after a short delay (`Playerbots.LOD.ReviveDelay = 60` s) so the neighborhood
+does not turn into a graveyard.
+
+### 8. Runs on a home PC: memory discipline
+Beyond the LOD system itself, the fork does the unglamorous work that keeps RAM flat:
+
+- empty zones release their terrain, collision and pathfinding data
+  (`GridUnload` / `GridCleanUpDelay`);
+- far-away bots stop sending client updates earlier
+  (`Visibility.Distance.Bots = 120` in `worldserver.conf`);
+- recorded bots are kept in memory and only periodically written to the database —
+  no per-bot database chatter;
+- the bot manager skips all client-only update work for the recorded population.
+
+**Measured while playing:** worldserver ≈ 3.5–3.6 GB, MySQL ≈ 1.1 GB, authserver ≈ 16 MB.
+
+### 9. A fresh population in one restart
+Flip `Playerbots.DeleteRandomBotAccounts = 1`, start the server, flip it back. The server
+wipes every bot account (your characters are untouched) and rebuilds a brand-new population
+with new names, levels, zones and guilds. First generation takes ~40–60 minutes; every
+boot after that is ~2 minutes.
+
+### 10. Twenty-four modules preinstalled
+Selected by comparing the reference "repack" distributions and keeping only working,
+maintained ones:
 
 | Module | What it gives |
 |---|---|
-| mod-individual-progression | Classic-era progression gating (the backbone of the experience) |
+| mod-individual-progression | Classic-era progression gating — the backbone of the experience |
 | mod-playerbots *(this fork's version)* | The bots themselves + all living-world features above |
 | mod-solo-lfg | Dungeon finder works solo |
 | mod-dungeon-clear | Bot parties clear dungeons end-to-end (+ client addon) |
@@ -156,43 +180,46 @@ and the module loader):
 
 ---
 
-## ⚙️ The knobs that matter
+## ⚙️ Settings worth knowing
 
-| Setting (playerbots.conf unless noted) | Default here | What it changes |
+All in `configs/playerbots.conf` unless noted:
+
+| Setting | Default here | What it changes |
 |---|---|---|
-| `LOD.Enabled` | 1 | master switch of the whole living world |
-| `LOD.Population` | 10000 | how many bots exist as records |
-| `LOD.MaxActiveBots` | 300 | how many are real characters at once — **first RAM knob** |
-| `LOD.BotsNearPlayerTarget` | 40 | desired crowd around each player |
-| `LOD.MinSpawnDistance` | 100 | yards — must stay above the client render distance (70) |
-| `LOD.DematerializeDelay` | 60 | seconds a deserted bot stays simulated |
-| `Playerbots.SyncLevelWithPlayers` | 1 | keeps bot levels near real player levels |
+| `Playerbots.LOD.Enabled` | 1 | master switch of the whole living world |
+| `Playerbots.LOD.Population` | 10000 | how many bots exist as records |
+| `Playerbots.LOD.MaxActiveBots` | 300 | how many are real characters at once — **the first RAM knob** |
+| `Playerbots.LOD.BotsNearPlayerTarget` | 40 | desired crowd size around each player |
+| `Playerbots.LOD.ActiveRadius` / `DeactivateRadius` | 250 / 400 | materialize when a player is within 250 yd; keep until they are 400 yd away |
+| `Playerbots.LOD.MinSpawnDistance` | 100 | yards — keep above the client render distance so bots appear off-screen |
+| `Playerbots.LOD.DematerializeDelay` | 60 | seconds a deserted bot stays simulated |
+| `Playerbots.LOD.ReviveDelay` | 60 | seconds after death before a bot resurrects |
+| `Playerbots.LOD.ConcentrateInPlayerZone` | 1 | steer spare population toward zones where players are |
+| `Playerbots.SyncLevelWithPlayers` | 1 | keep bot levels near real player levels |
 | `Playerbots.DeleteRandomBotAccounts` | 0 | 1 = wipe + regenerate the whole population on next start |
 | `GameType` *(worldserver.conf)* | 1 | world PvP on |
-| `GridUnload` / `GridCleanUpDelay` *(worldserver.conf)* | 1 / 60000 | memory release for empty zones |
+| `GridUnload` / `GridCleanUpDelay` *(worldserver.conf)* | 1 / 60000 | release memory for empty zones |
+| `Visibility.Distance.Bots` *(worldserver.conf)* | 120 | where far bots stop updating clients |
 
-**If RAM creeps above 4 GB**, lower in this order: `LOD.MaxActiveBots` →
-`LOD.BotsNearPlayerTarget` → `Visibility.Distance.Bots` → `DynamicReactDelay`.
-Each step trades a bit of crowd density for a chunk of memory.
+**If RAM creeps above 4 GB**, lower in this order: `Playerbots.LOD.MaxActiveBots` →
+`Playerbots.LOD.BotsNearPlayerTarget` → `Visibility.Distance.Bots`. Each step trades a bit
+of crowd density for a chunk of memory.
 
 ---
 
 ## 🚀 Quick start
 
 1. Unpack the [latest release](https://github.com/Firues/azerothcore-wotlk/releases/latest).
-2. Put extracted `maps` / `DBC` / `vmaps` into `data/` (the archive's `HOW-TO-START.txt`
-   walks through it; tools are included).
-3. Check DB lines in `configs/worldserver.conf` / `configs/authserver.conf`.
-4. Client realmlist → `set realmlist 127.0.0.1`.
+2. Extract `maps` / `DBC` / `vmaps` from your 3.3.5a client into `data/` — the archive's
+   `HOW-TO-START.txt` walks through it, the tools are included.
+3. Check the database lines in `configs/worldserver.conf` / `configs/authserver.conf`.
+4. Client realmlist: `set realmlist 127.0.0.1`.
 5. Run `authserver.exe` and `worldserver.exe`; in the worldserver console type
    `account create <name> <password>`.
 6. Log in and open the Who window — the realm is already full.
 
-First start with a fresh database: the population is generated automatically
-(11,620 characters, ~40–60 minutes); later boots are **~2 minutes**.
-
-**RAM you can expect while playing:** worldserver ≈ 3.5–3.6 GB, MySQL ≈ 1.1 GB
-(1 GB InnoDB pool), authserver ≈ 16 MB.
+Use a fresh database on first start: the population generates itself automatically.
+**RAM while playing:** worldserver ≈ 3.5–3.6 GB, MySQL ≈ 1.1 GB, authserver ≈ 16 MB.
 
 ---
 
@@ -201,7 +228,7 @@ First start with a fresh database: the population is generated automatically
 - Code lives on the **`my-server`** branch of this repo and of
   [Firues/mod-playerbots](https://github.com/Firues/mod-playerbots).
 - `.github/workflows/windows_build.yml` compiles a full Windows server on every push and
-  publishes an artifact; releases above are snapshots of that pipeline.
+  publishes the binaries; releases are snapshots of that pipeline.
 
 ## 🙏 Credits
 
