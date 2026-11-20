@@ -23,6 +23,15 @@ characters needs a dedicated server machine, and most of the world stays empty.
 Every push to this repository is also compiled automatically by GitHub Actions; per-commit
 binaries are on the [Actions page](https://github.com/Firues/azerothcore-wotlk/actions).
 
+### 🕹️ Optional: the Azeroth Hub launcher
+
+[**Azeroth Hub**](https://github.com/Firues/azeroth-hub) — a desktop control panel for this
+server. One window instead of three consoles, and it stops the stack in the order that keeps
+your characters safe (world → login → database). Rollback points with one-button restores,
+health checks, a characters browser, seven UI languages.
+**[Download the launcher](https://github.com/Firues/azeroth-hub/releases/latest)** — drop
+`wow-hub.exe` next to `worldserver.exe` and run it.
+
 ---
 
 ## 🌍 What is different here
